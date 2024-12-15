@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Endless Runner with Intro and Replay Screen</title>
+  <style>
+    body {
+      margin: 0;
+      overflow: hidden;
+      background-color: #1a1a2e;
+      font-family: Arial, sans-serif;
+    }
+    canvas {
+      display: block;
+    }
+    .button {
+      position: absolute;
+      width: 50px;
+      height: 50px;
+      cursor: pointer;
+    }
+    #pause-btn { top: 10px; left: 10px; display: none; }
+    #play-btn { top: 50%; left: 50%; transform: translate(-50%, -50%); }
+    #retry-btn { top: 70%; left: 50%; transform: translate(-50%, -50%); display: none; }
+    #score {
+      position: absolute;
+      top: 10px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 1.5em;
+      color: white;
+    }
+    #game-over {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      font-size: 2em;
+      color: white;
+      text-align: center;
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="gameCanvas"></canvas>
+
+  <!-- Buttons -->
+  <img id="pause-btn" class="button" src="Pause_Button.png" alt="Pause">
+  <img id="play-btn" class="button" src="Play_Button.png" alt="Play">
+  <img id="retry-btn" class="button" src="Retry_Button.png" alt="Retry">
+
+  <!-- Score and Game Over Message -->
+  <div id="score">Score: 0</div>
+  <div id="game-over">
+    <div>Game Over!</div>
+    <div>Your Score: <span id="final-score">0</span></div>
+  </div>
+
+  <!-- Audio -->
+  <audio id="backgroundMusic" src="relaxing.mp3" loop></audio>
+  <audio id="jumpSound" src="Jump.wav"></audio>
+  <audio id="clickSound" src="Click.wav"></audio>
+  <audio id="gameOverSound" src="Game Over.wav"></audio>
+
+  <script>
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+
+    // Images
+    const backgroundImage = new Image();
+    backgroundImage.src = 'Background.png';
+
+    const foregroundImage = new Image();
+    foregroundImage.src = 'Foreground.png';
+
+    const obstacle1Image = new Image();
+    obstacle1Image.src = 'Obstacle_1.png';
+
+    const obstacle2Image = new Image();
+    obstacle2Image.src = 'Obstacle_2.png';
+
+    const obstacle3Image = new Image();
+    obstacle3Image.src = 'Obstacle_3.png';
+
+    const playerImage = new Image();
+    playerImage.src = 'Teddy_Bear.png';
+
+    // Buttons
+    const pauseBtn = document.getElementById('pause-btn');
+    const playBtn = document.getElementById('play-btn');
+    const retryBtn = document.getElementById('retry-btn');
+
+    const scoreDisplay = document.getElementById('score');
+    const gameOverScreen = document.getElementById('game-over');
+    const finalScoreDisplay = document.getElementById('final-score');
+
+    // Audio
+    const backgroundMusic = document.getElementById('backgroundMusic');
+    const jumpSound = document.getElementById('jumpSound');
+    const clickSound = document.getElementById('clickSound');
+    const gameOverSound = document.getElementById('gameOverSound');
+
+    // Game variables
+    let isPaused = true;
+    let isGameOver = false;
+    let score = 0;
+
+    const player = { x: 100, y: canvas.height - 150, width: 50, height: 50, dy: 0, gravity: 1, jumpForce: -15, isJumping: false };
+    const obstacles = [];
+    const obstacleImages = [obstacle1Image, obstacle2Image, obstacle3Image];
+    const gameSpeed = 4;
+    let backgroundX = 0, foregroundX = 0;
+
+    // Spawn Obstacles
+    function spawnObstacle() {
+      const randomObstacle = obstacleImages[Math.floor(Math.random() * obstacleImages.length)];
+      obstacles.push({ x: canvas.width, y: canvas.height - 150, width: 50, height: 50, image: randomObstacle });
+    }
+    setInterval(() => { if (!isPaused && !isGameOver) spawnObstacle(); }, 2000);
+
+    function update() {
+      if (isPaused || isGameOver) return;
+
+      // Background movement
+      backgroundX -= gameSpeed * 0.5;
+      foregroundX -= gameSpeed;
+      if (backgroundX <= -canvas.width) backgroundX = 0;
+      if (foregroundX <= -canvas.width) foregroundX = 0;
+
+      // Player physics
+      player.y += player.dy;
+      if (player.y + player.height < canvas.height - 100) player.dy += player.gravity;
+      else {
+        player.dy = 0;
+        player.isJumping = false;
+        player.y = canvas.height - 150;
+      }
+
+      // Obstacles update
+      obstacles.forEach((obs, i) => {
+        obs.x -= gameSpeed;
+        if (player.x < obs.x + obs.width && player.x + player.width > obs.x && player.y < obs.y + obs.height) gameOver();
+        if (obs.x + obs.width < 0) {
+          obstacles.splice(i, 1);
+          score++;
+        }
+      });
+
+      scoreDisplay.textContent = `Score: ${score}`;
+      draw();
+      requestAnimationFrame(update);
+    }
+
+    function draw() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      ctx.drawImage(backgroundImage, backgroundX, 0, canvas.width, canvas.height);
+      ctx.drawImage(backgroundImage, backgroundX + canvas.width, 0, canvas.width, canvas.height);
+
+      obstacles.forEach(obs => ctx.drawImage(obs.image, obs.x, obs.y, obs.width, obs.height));
+      ctx.drawImage(playerImage, player.x, player.y, player.width, player.height);
+
+      ctx.drawImage(foregroundImage, foregroundX, canvas.height - 100, canvas.width, 100);
+      ctx.drawImage(foregroundImage, foregroundX + canvas.width, canvas.height - 100, canvas.width, 100);
+    }
+
+    function gameOver() {
+      isGameOver = true;
+      isPaused = true;
+      backgroundMusic.pause();
+      gameOverSound.play();
+      gameOverScreen.style.display = 'block';
+      retryBtn.style.display = 'block';
+      finalScoreDisplay.textContent = score;
+    }
+
+    function resetGame() {
+      clickSound.play();
+      score = 0;
+      isGameOver = false;
+      isPaused = false;
+      player.y = canvas.height - 150;
+      obstacles.length = 0;
+      backgroundMusic.play();
+      gameOverScreen.style.display = 'none';
+      retryBtn.style.display = 'none';
+      update();
+    }
+
+    playBtn.addEventListener('click', () => {
+      clickSound.play();
+      isPaused = false;
+      backgroundMusic.play();
+      playBtn.style.display = 'none';
+      pauseBtn.style.display = 'block';
+      update();
+    });
+
+    pauseBtn.addEventListener('click', () => {
+      clickSound.play();
+      isPaused = true;
+      backgroundMusic.pause();
+      pauseBtn.style.display = 'none';
+      playBtn.style.display = 'block';
+    });
+
+    retryBtn.addEventListener('click', resetGame);
+
+    window.addEventListener('keydown', (e) => {
+      if (e.key === ' ' && !player.isJumping) {
+        player.dy = player.jumpForce;
+        player.isJumping = true;
+        jumpSound.currentTime = 0;
+        jumpSound.play();
+      }
+    });
+  </script>
+</body>
+</html>
